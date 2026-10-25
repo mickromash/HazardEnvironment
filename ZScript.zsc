@@ -1,0 +1,391 @@
+Version "4.14.2"
+
+Class MRHazEnv_Handler: StaticEventHandler
+{
+	Array<MRHazEnv_SectorPoint> Points;
+	MRHazEnv_PointsBlock BlockMap[2000][2000];//LoL
+	Array<MRHazEnv_SectorParticles> ParticleSpawners;
+	
+	Float SoundDistance;
+	
+	Const MinDiff = 8;
+	
+	Override Void WorldLoaded(WorldEvent e)
+	{
+		int Rand;
+		foreach(Point : Points){
+			if(Point)Point.Destroy();
+		}
+		Points.Clear();
+		
+		For(int x=0;x<2000;x++){
+			For(int y=0;y<2000;y++){
+				if(BlockMap[X][Y])BlockMap[X][Y].Destroy();
+			}
+		}
+		
+		foreach(Spawner: ParticleSpawners){
+			if(Spawner)Spawner.Destroy();
+		}
+		
+		ParticleSpawners.Clear();
+		
+		For(int i=0;i<Level.Sectors.Size();i++){
+			Let Sect = Level.Sectors[i];
+			if(!Sect)Continue;
+			
+			if(Sect.damageamount>0){
+				
+				//Console.Printf("We found him");
+				
+				Bool LazyOne = (Sect.Lines.Size()<6);
+				
+				For(int i1=0;i1<Sect.Lines.Size();i1++){
+					Let Lin = Sect.Lines[i1];
+					if(!Lin)Continue;
+					
+					Vector2 Diff = Lin.v2.p-Lin.v1.p;
+					
+					For(float i2=0;i2<Diff.Length();i2+=25){
+						
+						Vector2 Pos = Lin.v1.p + Diff.Unit()*i2;
+						Vector2 Block = (int(Pos.X/500+1000), int(Pos.Y/500+1000));
+						
+						if(abs(Pos.X)>=500000 || abs(Pos.Y)>=500000)Continue;
+						
+						if(!BlockMap[Block.X][Block.Y]){
+							BlockMap[Block.X][Block.Y] = New('MRHazEnv_PointsBlock');
+							BlockMap[Block.X][Block.Y].Pos = Block;
+							
+							Let p1 = New('MRHazEnv_SectorPoint');
+							p1.Pos = Pos;
+							p1.Sect = Sect;
+							BlockMap[Block.X][Block.Y].Points.Push(p1);
+						}
+						else {
+							Bool AlreadyListed = false;
+							For(int i3=0;i3<BlockMap[Block.X][Block.Y].Points.Size();i3++){
+								Vector2 ListDiff = Pos - BlockMap[Block.X][Block.Y].Points[i3].Pos;
+								if(ListDiff.Length()<MinDiff){
+									AlreadyListed = true;
+									Break;
+								}
+							}
+							
+							if(AlreadyListed)Continue;
+						}
+						
+						Let p1 = New('MRHazEnv_SectorPoint');
+						p1.Pos = Pos;
+						p1.Sect = Sect;
+						BlockMap[Block.X][Block.Y].Points.Push(p1);
+																		
+						Vector2 Test = Lin.v1.p + Diff.Unit()*i2;
+						
+						Double DirAng = VectorAngle(Lin.Delta.X, Lin.Delta.Y)+45+(90*(i2/Diff.Length()));
+						
+						if(Level.PointInSector(Test + (Cos(DirAng), Sin(DirAng))) != Sect || !Level.IsPointInLevel((Test + (Cos(DirAng), Sin(DirAng)), Sect.CenterFloor()))){
+							DirAng -= (45+(90*(i2/Diff.Length())))*2;
+						}
+						
+						Vector2 Dir = (Cos(DirAng), Sin(DirAng));
+						
+						int Akhtung = 0;
+						do
+						{
+							Test += Dir;
+							Akhtung++;
+						}
+						While(Level.PointInSector(Test).CenterFloor() == Sect.CenterFloor() && Akhtung<1000 && Level.IsPointInLevel((Test, Sect.CenterFloor())))
+						
+						Vector2 Dif = Test-Lin.v1.p + Diff.Unit()*i2;
+						//Console.Printf("Start: "..b.Pos.." End: "..Dif.Length());
+
+						p1.End = Test - (Lin.v1.p + Diff.Unit()*i2);
+						Vector2 Diff = p1.End-p1.Pos;
+						p1.Size = Diff.Length()*.001;
+					}
+				}
+			}
+		}
+		
+		For(int X=0;X<2000;X++){
+			For(int Y=0;Y<2000;Y++){
+				if(BlockMap[X][Y]){
+					Let a = New('MRHazEnv_SectorParticles');
+					a.LinkedSector = BlockMap[X][Y].Points[0].Sect;
+					a.Rand = Rand = Rand+1;
+					a.Block = BlockMap[X][Y];
+					ParticleSpawners.Push(a);
+				}
+			}
+		}
+	}
+	
+	MRHazEnv_PointsFinder Finders[MAXPLAYERS];
+	
+	Override Void PlayerEntered(PlayerEvent e)
+	{
+		if(e.PlayerNumber == ConsolePlayer && !Finders[e.PlayerNumber]){
+			Finders[e.PlayerNumber] = New('MRHazEnv_PointsFinder');
+			Finders[e.PlayerNumber].Master = Players[e.PlayerNumber].mo;
+			Finders[e.PlayerNumber].Handler = Self;
+		}
+	}
+	
+	Override Void NetworkProcess(ConsoleEvent e)
+	{
+		if(e.name ~== "MRHazEnv_Uninstall"){
+			foreach(Point : Points){
+				if(Point)Point.Destroy();
+			}
+			Points.Clear();
+			
+			For(int x=0;x<2000;x++){
+				For(int y=0;y<2000;y++){
+					if(BlockMap[X][Y])BlockMap[X][Y].Destroy();
+				}
+			}
+			
+			foreach(Spawner: ParticleSpawners){
+				if(Spawner)Spawner.Destroy();
+			}
+			
+			ThinkerIterator iter = ThinkerIterator.Create("MRHazEnv_SectorParticles");
+			
+			MRHazEnv_SectorParticles mo;
+			While(mo = MRHazEnv_SectorParticles(iter.Next())){
+				mo.Destroy();
+			}
+			
+			Foreach(Finder: Finders){
+				if(Finder)Finder.Destroy();
+			}
+			
+			Console.Printf(StringTable.Localize("$MRHaz_Uninstalled"));
+			
+			Return;
+		}
+	}
+	
+	Override Void WorldTick()
+	{
+		SoundDistance = MRHaz_SoundDistance;
+	}
+}
+
+Class MRHazEnv_PointsBlock: object Play
+{
+	Vector2 Pos;
+	Array<MRHazEnv_SectorPoint> Points;
+}
+
+Class MRHazEnv_SectorPoint: Object Play
+{
+	Double Size;
+	Vector2 End, Pos;
+	Sector Sect;
+}
+
+Class MRHazEnv_PointsFinder: Thinker
+{
+	//Const Range = 200;
+	
+	int Delay, CurDel;
+	Actor Master;
+	MRHazEnv_Handler Handler;
+	
+	Override Void Tick()
+	{
+		Super.Tick();
+		
+		if(PlayerPawn(Master)&& !!Master.player && !!Master.player.mo)Master = Master.Player.mo;
+		
+		if(!Master || !Handler){Destroy();Return;}
+		
+		if(CurDel>0)CurDel--;
+			
+		if(Master.GetAge()%3!=0)Return;
+		
+		//Console.Printf("Block["..int(Master.Pos.X/500+1000).."]["..int(Master.Pos.Y/500+1000).."]");
+		
+		Double Range = Handler.SoundDistance;
+		Double Dist = Range;
+		
+		if(Master.CurSector && Master.CurSector.DamageAmount>0){
+			Dist = Master.Pos.Z-Master.CurSector.CenterFloor();
+			Delay = 20-Master.CurSector.DamageAmount;
+		}
+		
+		else {
+			For(int i=0;i<360;i+=45){
+				DistanceToPoint(Master.Pos.XY + Actor.AngleToVector(i, Range), Dist, Range);
+			}
+			
+			DistanceToPoint(Master.Pos.XY, Dist, Range);
+		}
+				
+		//Console.Printf("Dist "..Dist);
+		
+		if(Dist<Range){
+			if(CurDel>0)Return;
+			
+			Master.A_StartSound("MRHazEnv/RangeTic", CHAN_AUTO, CHANF_LOCAL, (1-Dist/Range)*MRHaz_SoundVolume, pitch: CFRandom(5, 5.2));
+			CurDel = Delay;
+		}
+	}
+	
+	Void DistanceToPoint(Vector2 Pos, in out Double Dist, Double Range)
+	{
+		if(abs(Pos.X)>=500000 || abs(Pos.Y)>=500000)Return;
+				
+		if(!Handler.BlockMap[int(Pos.X/500+1000)][int(Pos.Y/500+1000)])Return;
+		
+		Let BlockMap = Handler.BlockMap[int(Pos.X/500+1000)][int(Pos.Y/500+1000)];
+		For(int i1=0;i1<BlockMap.Points.Size();i1++){
+			Vector3 Diff = (BlockMap.Points[i1].Pos, Level.PointInSector(BlockMap.Points[i1].Pos).CenterFloor()) - Master.Pos;
+			if(Diff.Length()>Range)Continue;
+							
+			if(Diff.Length()<Dist){
+				Dist = Diff.Length();
+				if(BlockMap.Points[i1].Sect)Delay = 20-BlockMap.Points[i1].Sect.DamageAmount;
+			}
+		}
+	}
+	
+	Static Void MRSpawnParticle(Color Col, TextureId Tex, int Flags=0, int Style=STYLE_None, int Life=1, double Size=1, Vector3 Pos=(0,0,0), Vector3 Vel=(0,0,0), Vector3 Accel=(0,0,0), Double Alpha=1, Double Fade=-1, Double SizeStep=0)
+	{
+		FSpawnParticleParams p;
+		p.Texture = Tex;
+		
+		p.Accel = Accel;
+		p.Vel = Vel;
+		p.Pos = Pos;
+		
+		p.Color1 = Col;
+		p.LifeTime = Life;
+		p.size = Size;
+		p.sizeStep = SizeStep;
+		p.startalpha = Alpha;
+		p.fadestep = Fade;
+		if(Fade==-1)p.FadeStep = Alpha/Max(1, Life-1);
+		
+		p.Flags = Flags;
+		p.Style = Style;
+		
+		Level.SpawnParticle(p);
+	}
+}
+
+enum MRHazEnv_EffectsFlags
+{
+	MRHazEF_Vapor = 1,
+	MRHazEF_Steam = 2,
+	MRHazEF_Bubbles = 4,
+}
+
+Class MRHazEnv_SectorParticles: Thinker
+{
+	MRHazEnv_PointsBlock Block;
+	Float Size;
+	int Rand;
+	TextureID Tex;
+	Sector LinkedSector;
+	
+	int Effects;
+	
+	Override Void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		
+		For(int i=0;i<Block.Points.Size();i++){
+			if(Size<Block.Points[i].Size)Size = BLock.Points[i].Size;
+		}
+	}
+	
+	Override Void Tick()
+	{
+		Super.Tick();
+		
+		if(!Players[ConsolePlayer].Camera){Destroy();Return;}
+		
+		Vector2 Pos = Players[ConsolePlayer].Camera.Pos.XY;
+		Pos = (int(Pos.X/500+1000), int(Pos.Y/500+1000));
+		Pos = Block.Pos - Pos;
+		
+		if(Pos.Length()>2)Return;
+		
+		if(MRHaz_Debug){
+			MRSpawnParticle(Color(0,255,0), Texman.CheckForTexture("None"), SPF_NoTimeFreeze|SPF_FullBright, STYLE_Add, 1, 10, (Block.Pos, LinkedSector.CenterFloor())+ (0,0, 20+Rand));
+		}
+		
+		if((GameTic+Rand)%8==0){
+			if(LinkedSector.DamageAmount<1){
+				if(Block){
+					For(int i=0;i<Block.Points.Size();i++){
+						if(Block.Points[i].Sect.DamageAmount<1){
+							Block.Points[i].Destroy();
+							Block.Points.Delete(i);
+							i--;
+						}
+					}
+					if(Block.Points.Size()<1)Block.Destroy();
+				}
+				Destroy();
+				Return;
+			}
+			
+			if(MRHaz_Effects)Effects = MRHaz_WhichEffects;
+			else Effects = 0;
+			
+			if(MRHaz_Debug)For(int i=0;i<Block.Points.Size();i++)
+			{
+				
+				For(Double i1=0;i1<1;i1+=.1){
+					MRSpawnParticle(Color(255,0,int(255*i1)), Texman.CheckForTexture("None"), SPF_FullBright|SPF_NoTimeFreeze, STYLE_None, 6, 10, (Block.Points[i].Pos + Block.Points[i].End*i1, LinkedSector.CenterFloor()) + (0,0,30), Alpha:.1, Fade:0);
+				}
+			}
+			
+			Let Lin = Block.Points[CRandom(0, Block.Points.Size()-1)];
+			if(Lin.Sect){
+				Vector3 Pos = (Lin.Pos + Lin.End*CFRandom(.05, .95), Lin.Sect.CenterFloor());
+				if(Effects!=0)SpawnParticle(Pos, Lin.Sect, Size); //Lin.End.Length()*.01);
+				S_StartSoundAt(Pos, "MRHazEnv/Boil", CHAN_Auto, volume: MRHaz_BoilingVolume, attenuation: ATTN_STATIC, pitch: CFRandom(.09, .13), StartTime: .4);
+			}
+		}
+	}
+	
+	Void SpawnParticle(Vector3 Pos, Sector Sect, Double Size=1)
+	{
+		//MRSpawnParticle(Color(255,255,255), LinkedSector.GetTexture(0), 0, STYLE_Add, 35, CFRandom(1, 5), (Pos, LinkedSector.CenterFloor()), (CFRandom(-.5, .5), CFRandom(-.5, .5), CFRandom(2, 4)), (CFRandom(-.01, .01), CFRandom(-.01, .01), -.3));
+		Double Vel = CFRandom(.5, 1);
+		//if((GameTic+Rand)%8==0){
+			if(Effects&MRHazEF_Bubbles)MRSpawnParticle(Color(255,255,255), Sect.GetTexture(0), SPF_FullBright|SPF_NoTimeFreeze, STYLE_Add, 80*Vel, 4*Size, Pos, (0,0,-.4*Vel*Size*.75), SizeStep: .4*Vel*Size);
+			if(Effects&MRHazEF_Steam)MRSpawnParticle(Color(170,170,170), Texman.CheckForTexture("glpartA"), SPF_NoTimeFreeze, STYLE_None, 70, 9, Pos - (0,0,5), (CFRandom(-.25, .25), CFRandom(-.25, .25), CFRandom(.1, .3)), Alpha:.5, SizeStep:CFRandom(.6, 1)*Size);
+		//}
+		if(Effects&MRHazEF_Vapor)MRSpawnParticle(Color(255,255,255), Texman.CheckForTexture("glpartA"), SPF_FullBright|SPF_NoTimeFreeze, STYLE_Add, 40, 1*((Size-1)*.8+1), Pos, (CFRandom(-1, 1), CFRandom(-1, 1), 4), (CFRandom(-.5, .5),CFRandom(-.5, .5),CFRandom(-.3, .2)), Alpha:CFRandom(.3, .8));
+	}
+	
+	Static Void MRSpawnParticle(Color Col, TextureId Tex, int Flags=0, int Style=STYLE_None, int Life=1, double Size=1, Vector3 Pos=(0,0,0), Vector3 Vel=(0,0,0), Vector3 Accel=(0,0,0), Double Alpha=1, Double Fade=-1, Double SizeStep=0)
+	{
+		FSpawnParticleParams p;
+		p.Texture = Tex;
+		
+		p.Accel = Accel;
+		p.Vel = Vel;
+		p.Pos = Pos;
+		
+		p.Color1 = Col;
+		p.LifeTime = Life;
+		p.size = Size;
+		p.sizeStep = SizeStep;
+		p.startalpha = Alpha;
+		p.fadestep = Fade;
+		if(Fade==-1)p.FadeStep = Alpha/Max(1, Life-1);
+		
+		p.Flags = Flags;
+		p.Style = Style;
+		
+		Level.SpawnParticle(p);
+	}
+}

@@ -1,0 +1,33 @@
+[default en eng enu]
+
+MRHazEnv_Menu = "Configure damaging floor indication";
+
+MRHaz_Effects = "Effects";
+MRHaz_Vapor = "Quake-like vapor";
+MRHaz_Steam = "Steam";
+MRHaz_Bubbles = "Boiling";
+
+MRHaz_BoilingVolume = "Boiling sound volume";
+MRHaz_SoundVolume = "Ticking volume";
+MRHaz_SoundDistance = "Ticking range";
+
+MRHaz_Uninstall = "Unistall mod";
+MRHaz_UninstallPromt = "Remove the mod so the saved game could be loaded without it?";
+MRHaz_Uninstalled = "Hazard Environment: \cdMod successfully uninstalled.";
+
+[ru]
+
+MRHazEnv_Menu = "Настроить сигнализирование дамажащих полов";
+
+MRHaz_Effects = "Эффекты";
+MRHaz_Vapor = "Частицы";
+MRHaz_Steam = "Пар";
+MRHaz_Bubbles = "Булькание";
+
+MRHaz_BoilingVolume = "Громкость бурления";
+MRHaz_SoundVolume = "Громкость сигнала";
+MRHaz_SoundDistance = "Радиус сигнала";
+
+MRHaz_Uninstall = "Отключить мод";
+MRHaz_UninstallPromt = "Удалить данные мода из игры?\nблагодаря этому сохранённая игра сможет быть загружена без него?";
+MRHaz_Uninstalled = "Hazard Environment: \cdМод успешно удалён.";

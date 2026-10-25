@@ -1,0 +1,6 @@
+noarchive nosave bool MRHaz_Debug = false;
+nosave bool MRHaz_Effects = true;
+nosave int MRHaz_WhichEffects = 1;
+nosave float MRHaz_BoilingVolume = 1;
+nosave float MRHaz_SoundVolume = 1;
+nosave float MRHaz_SoundDistance = 200;

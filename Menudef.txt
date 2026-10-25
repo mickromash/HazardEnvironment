@@ -1,0 +1,23 @@
+AddOptionMenu "OptionsMenu"
+{
+	StaticText "Hazard Environment"
+	SubMenu "$MRHazEnv_Menu", "MRHazEnv_Menu"
+	StaticText ""
+}
+
+OptionMenu "MRHazEnv_Menu"
+{
+	Title "$MRHazEnv_Menu"
+	StaticText ""
+	Option "$MRHaz_Effects", "MRHaz_Effects", "OnOff"
+	FlagOption "$MRHaz_Vapor", "MRHaz_WhichEffects", "OnOff", 0, "MRHaz_Effects"
+	FlagOption "$MRHaz_Steam", "MRHaz_WhichEffects", "OnOff", 1, "MRHaz_Effects"
+	FlagOption "$MRHaz_Bubbles", "MRHaz_WhichEffects", "OnOff", 2, "MRHaz_Effects"
+	Slider "$MRHaz_BoilingVolume", "MRHaz_BoilingVolume", 0, 1, .1
+	StaticText ""
+	Slider "$MRHaz_SoundVolume", "MRHaz_SoundVolume", 0, 1, .1
+	Slider "$MRHaz_SoundDistance", "MRHaz_SoundDistance", 50, 500, 50, 1
+	StaticText ""
+	SafeCommand "$MRHaz_Uninstall", "MRHazEnv_Uninstall", "$MRHaz_UninstallPromt"
+	StaticText ""
+}

@@ -1,0 +1,5 @@
+MRHazEnv/Whoosh dsquake
+
+MRHazEnv/Boil icedth1
+
+MRHazEnv/RangeTic spark1
